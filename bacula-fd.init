@@ -1,0 +1,92 @@
+#!/bin/bash
+#
+# bacula-fd     This shell script takes care of starting and stopping
+#               the bacula-fd daemon, the backup client enabling bacula
+#               to backup the local machine.
+#
+# chkconfig: - 80 20
+# description: Bacula-fd is a Backup-client, which is the program \
+#              that enables the bacula-server to backup the local \
+#              machine.
+# processname: bacula-fd
+# config: /etc/bacula/bacula-fd.conf
+# pidfile: /var/run/bacula-fd.9102.pid
+
+# Source function library.
+. /etc/init.d/functions
+
+# Source configuration.
+if [ -f /etc/sysconfig/bacula-fd ] ; then
+        . /etc/sysconfig/bacula-fd
+fi
+
+RETVAL=0
+prog="bacula-fd"
+CONFIG="/etc/bacula/bacula-fd.conf"
+OPTS="-c $CONFIG"
+
+checkconf() {
+	# Check if we still have our @@PLACEHOLDERS@@ in the config.
+	# If yes, refuse to start, the user has never touched the config.
+	grep -q '_PASSWORD@@' $CONFIG
+	if [ $? -eq 0 ]; then
+		echo -n "Error: Program has not been configured"
+		echo_failure
+		echo
+		exit 6
+	fi
+}
+
+
+start() {
+	[ "$EUID" != "0" ] && exit 4
+
+	echo -n "Starting $prog: "
+	checkconf
+	daemon $prog $OPTS
+	RETVAL=$?
+	echo
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/$prog
+	return $RETVAL
+}	
+
+stop() {
+	[ "$EUID" != "0" ] && exit 4
+
+	echo -n "Shutting down $prog: "
+	killproc $prog
+	RETVAL=$?
+	echo
+	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/$prog
+	return $RETVAL
+}
+
+case "$1" in
+    start)
+		start
+		;;
+    stop)
+		stop
+		;;
+    status)
+		status $prog
+		;;
+    restart|force-reload)
+		stop
+		start
+		;;
+    reload)
+		;;
+    condrestart|try-restart)
+		if [ -f /var/lock/subsys/$prog ]; then
+			stop
+			start
+		fi
+		;;
+    *)
+	echo "Usage: $prog {start|stop|restart|condrestart|try-restart|reload|force-reload|status|usage}"
+	[ "$1" = "usage" ] && exit 0
+	exit 2
+	;;
+esac
+exit $?

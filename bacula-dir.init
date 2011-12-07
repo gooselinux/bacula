@@ -1,0 +1,131 @@
+#!/bin/bash
+#
+# bacula-dir    This shell script takes care of starting and stopping
+#               the bacula-dir daemon, the backup director controling
+#               the backup jobs.
+#
+# chkconfig: - 80 20
+# description: Bacula-dir is the Backup-server, which is the program \
+#              that schedules backups and controls the bacula-client and \
+#              the bacula-storage daemons.
+# processname: bacula-dir
+# config: /etc/bacula/bacula-dir.conf
+# pidfile: /var/run/bacula-dir.9101.pid
+
+# Source function library.
+. /etc/init.d/functions
+
+# Source configuration.
+if [ -f /etc/sysconfig/bacula-dir ] ; then
+        . /etc/sysconfig/bacula-dir
+fi
+
+RETVAL=0
+prog="bacula-dir"
+CONFIG="/etc/bacula/bacula-dir.conf"
+OPTS="-c $CONFIG"
+
+checkconf() {
+	# Check if we still have our @@PLACEHOLDERS@@ in the config.
+	# If yes, refuse to start, the user has never touched the config.
+	grep -q '^[^#].*_PASSWORD@@' $CONFIG
+	if [ $? -eq 0 ]; then
+		echo -n "Error: Program has not been configured"
+		echo_failure
+		echo
+		exit 6
+	fi
+}
+
+
+checkdatabase() {
+	# First, get the currently selected database backend from the
+	# alternatives system.
+	DB=$(LANG=C alternatives --display bacula-dir | grep 'link currently points to' | awk -F. '{ print $2 }')
+	case "$DB" in
+		sqlite)
+			# No check needed to see if the Database is running
+			;;
+		mysql)
+			# Check if mysqld is running
+			service mysqld status > /dev/null 2>&1
+			if [ $? -ne 0 ]; then
+				echo -n "Error: MySQL is not running"
+				echo_failure
+				echo
+				exit 1
+			fi
+			;;
+		postgresql)
+			# Check if postgresql is running
+			service postgresql status > /dev/null 2>&1
+			if [ $? -ne 0 ]; then
+				echo -n "Error: PostgreSQL is not running"
+				echo_failure
+				echo
+				exit 1
+			fi
+			;;
+		*)
+			echo -n "Error: Unknown database backend"
+			echo_failure
+			echo
+			exit 1
+			;;
+	esac
+}
+
+start() {
+	[ "$EUID" != "0" ] && exit 4
+
+	echo -n "Starting $prog: "
+	checkconf
+#	Removed for now, as the db might not be on localhost
+#	checkdatabase
+	daemon $prog $OPTS
+	RETVAL=$?
+	echo
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/$prog
+	return $RETVAL
+}	
+
+stop() {
+	[ "$EUID" != "0" ] && exit 4
+
+	echo -n "Shutting down $prog: "
+	killproc $prog
+	RETVAL=$?
+	echo
+	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/$prog
+	return $RETVAL
+}
+
+case "$1" in
+    start)
+		start
+		;;
+    stop)
+		stop
+		;;
+    status)
+		status $prog
+		;;
+    restart|force-reload)
+		stop
+		start
+		;;
+    reload)
+		;;
+    condrestart|try-restart)
+		if [ -f /var/lock/subsys/$prog ]; then
+			stop
+			start
+		fi
+		;;
+    *)
+	echo "Usage: $prog {start|stop|restart|condrestart|try-restart|reload|force-reload|status|usage}"
+	[ "$1" = "usage" ] && exit 0
+	exit 2
+	;;
+esac
+exit $?

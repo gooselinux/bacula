@@ -1,0 +1,23 @@
+--- bacula-2.0.3/scripts/wxconsole.pamd.orig    2007-07-11 18:43:10.000000000 +0200
++++ bacula-2.0.3/scripts/wxconsole.pamd 2007-07-11 18:43:23.000000000 +0200
+@@ -1,7 +1,7 @@
+ #%PAM-1.0
+ auth       sufficient   pam_rootok.so
+ auth       sufficient   pam_timestamp.so
+-auth       required     pam_stack.so service=system-auth
++auth       include      system-auth
+ session    optional     pam_xauth.so
+ session    optional     pam_timestamp.so
+ account    required     pam_permit.so
+--- bacula-2.0.3/scripts/bgnome-console.pamd.orig        2007-07-11 18:42:33.000000000 +0200
++++ bacula-2.0.3/scripts/bgnome-console.pamd     2007-07-11 18:42:57.000000000 +0200
+@@ -1,7 +1,7 @@
+ #%PAM-1.0
+ auth       sufficient   pam_rootok.so
+ auth       sufficient   pam_timestamp.so
+-auth       required     pam_stack.so service=system-auth
++auth       include      system-auth
+ session    optional     pam_xauth.so
+ session    optional     pam_timestamp.so
+ account    required     pam_permit.so
+
